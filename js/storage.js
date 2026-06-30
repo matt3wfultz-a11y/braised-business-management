@@ -30,7 +30,7 @@ const Storage = (() => {
     saveInvoices(invoices) { write(KEYS.invoices, invoices); },
     getSettings() {
       return read(KEYS.settings, {
-        businessName: "Your Business",
+        businessName: "Braised Animation",
         businessEmail: "",
         businessAddress: "",
         currency: "$",
