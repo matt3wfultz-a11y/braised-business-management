@@ -324,6 +324,41 @@ $("#btn-print-invoice").addEventListener("click", () => {
   setTimeout(() => $("#view-invoice-view").classList.remove("printing"), 500);
 });
 
+$("#btn-download-pdf").addEventListener("click", async () => {
+  const inv = invoices.find((i) => i.id === viewingInvoiceId);
+  const btn = $("#btn-download-pdf");
+  const originalLabel = btn.textContent;
+  btn.textContent = "Generating...";
+  btn.disabled = true;
+  try {
+    const node = $("#invoice-paper");
+    const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#fdfdfb" });
+    const imgData = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "pt", format: "a4" });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    pdf.save(`${inv.number}.pdf`);
+  } catch (e) {
+    alert("Couldn't generate PDF. Try Print instead.");
+  } finally {
+    btn.textContent = originalLabel;
+    btn.disabled = false;
+  }
+});
+
 $("#btn-send-invoice").addEventListener("click", () => {
   const inv = invoices.find((i) => i.id === viewingInvoiceId);
   const client = clients.find((c) => c.id === inv.clientId);
