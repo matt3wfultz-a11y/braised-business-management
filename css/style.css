@@ -28,7 +28,8 @@ body {
 
 .sidebar {
   width: 220px;
-  background: var(--teal);
+  background: var(--teal) url("../img/sidebar-pattern.svg");
+  background-size: 320px 240px;
   color: #f1efe9;
   padding: 24px 16px;
   display: flex;
