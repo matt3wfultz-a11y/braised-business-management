@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Braised — Invoicing & Business Management</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <nav class="sidebar">
+    <div class="brand">🍲 Braised</div>
+    <button class="nav-link active" data-view="dashboard">Dashboard</button>
+    <button class="nav-link" data-view="invoices">Invoices</button>
+    <button class="nav-link" data-view="clients">Clients</button>
+    <button class="nav-link" data-view="settings">Settings</button>
+  </nav>
+
+  <main class="content">
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <header class="view-header"><h1>Dashboard</h1></header>
+      <div class="stat-grid">
+        <div class="stat-card"><span class="stat-label">Outstanding</span><span class="stat-value" id="stat-outstanding">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Overdue</span><span class="stat-value danger" id="stat-overdue">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Paid (all time)</span><span class="stat-value success" id="stat-paid">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Draft</span><span class="stat-value" id="stat-draft">$0.00</span></div>
+      </div>
+      <h2 class="section-title">Recent Invoices</h2>
+      <div class="table-wrap">
+        <table id="recent-invoices-table">
+          <thead><tr><th>#</th><th>Client</th><th>Issued</th><th>Due</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- INVOICES LIST -->
+    <section id="view-invoices" class="view">
+      <header class="view-header">
+        <h1>Invoices</h1>
+        <button class="btn btn-primary" id="btn-new-invoice">+ New Invoice</button>
+      </header>
+      <div class="toolbar">
+        <input type="search" id="invoice-search" placeholder="Search invoices...">
+        <select id="invoice-filter-status">
+          <option value="">All statuses</option>
+          <option value="draft">Draft</option>
+          <option value="sent">Sent</option>
+          <option value="paid">Paid</option>
+          <option value="overdue">Overdue</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="invoices-table">
+          <thead><tr><th>#</th><th>Client</th><th>Issued</th><th>Due</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- INVOICE EDITOR -->
+    <section id="view-invoice-editor" class="view">
+      <header class="view-header">
+        <h1 id="editor-title">New Invoice</h1>
+        <div class="header-actions">
+          <button class="btn" id="btn-cancel-invoice">Cancel</button>
+          <button class="btn btn-primary" id="btn-save-invoice">Save Invoice</button>
+        </div>
+      </header>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Client</label>
+          <select id="inv-client"></select>
+        </div>
+        <div class="form-field">
+          <label>Invoice #</label>
+          <input type="text" id="inv-number">
+        </div>
+        <div class="form-field">
+          <label>Issue Date</label>
+          <input type="date" id="inv-issue-date">
+        </div>
+        <div class="form-field">
+          <label>Due Date</label>
+          <input type="date" id="inv-due-date">
+        </div>
+        <div class="form-field">
+          <label>Tax Rate (%)</label>
+          <input type="number" id="inv-tax-rate" min="0" step="0.01" value="0">
+        </div>
+        <div class="form-field">
+          <label>Status</label>
+          <select id="inv-status">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="paid">Paid</option>
+            <option value="overdue">Overdue</option>
+          </select>
+        </div>
+      </div>
+
+      <h2 class="section-title">Line Items</h2>
+      <div class="table-wrap">
+        <table id="items-table">
+          <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead>
+          <tbody id="items-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="btn-add-item">+ Add Line Item</button>
+
+      <div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span id="totals-subtotal">$0.00</span></div>
+        <div class="totals-row"><span>Tax</span><span id="totals-tax">$0.00</span></div>
+        <div class="totals-row totals-grand"><span>Total</span><span id="totals-grand">$0.00</span></div>
+      </div>
+
+      <div class="form-field">
+        <label>Notes</label>
+        <textarea id="inv-notes" rows="3" placeholder="Payment terms, thank-you note, etc."></textarea>
+      </div>
+    </section>
+
+    <!-- INVOICE VIEW / SEND -->
+    <section id="view-invoice-view" class="view">
+      <header class="view-header">
+        <h1>Invoice</h1>
+        <div class="header-actions">
+          <button class="btn" id="btn-back-from-view">Back</button>
+          <button class="btn" id="btn-edit-invoice">Edit</button>
+          <button class="btn" id="btn-print-invoice">Print / PDF</button>
+          <button class="btn btn-primary" id="btn-send-invoice">Send via Email</button>
+        </div>
+      </header>
+      <div class="invoice-paper" id="invoice-paper"></div>
+    </section>
+
+    <!-- CLIENTS -->
+    <section id="view-clients" class="view">
+      <header class="view-header">
+        <h1>Clients</h1>
+        <button class="btn btn-primary" id="btn-new-client">+ New Client</button>
+      </header>
+      <div class="table-wrap">
+        <table id="clients-table">
+          <thead><tr><th>Name</th><th>Company</th><th>Email</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view">
+      <header class="view-header"><h1>Settings</h1></header>
+      <div class="form-grid">
+        <div class="form-field"><label>Business Name</label><input type="text" id="set-business-name"></div>
+        <div class="form-field"><label>Business Email</label><input type="email" id="set-business-email"></div>
+        <div class="form-field"><label>Currency Symbol</label><input type="text" id="set-currency" maxlength="3" placeholder="$"></div>
+        <div class="form-field" style="grid-column: 1 / -1;"><label>Business Address</label><textarea id="set-business-address" rows="2"></textarea></div>
+      </div>
+      <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+    </section>
+
+  </main>
+</div>
+
+<!-- Client modal -->
+<div class="modal-backdrop" id="client-modal-backdrop">
+  <div class="modal">
+    <h2 id="client-modal-title">New Client</h2>
+    <div class="form-field"><label>Name</label><input type="text" id="client-name"></div>
+    <div class="form-field"><label>Company</label><input type="text" id="client-company"></div>
+    <div class="form-field"><label>Email</label><input type="email" id="client-email"></div>
+    <div class="form-field"><label>Address</label><textarea id="client-address" rows="2"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-cancel-client">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-client">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
