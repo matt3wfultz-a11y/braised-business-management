@@ -163,6 +163,24 @@
         <div class="form-field" style="grid-column: 1 / -1;"><label>Business Address</label><textarea id="set-business-address" rows="2"></textarea></div>
       </div>
       <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+
+      <h2 class="section-title">Data &amp; Backup</h2>
+      <div class="data-panel">
+        <p class="data-note">
+          Your clients and invoices are stored only in this browser. They are
+          <strong>not</strong> saved on any server and won't sync to other
+          devices. Download a backup regularly &mdash; especially before
+          clearing browser data or switching computers &mdash; so you never
+          lose your work.
+        </p>
+        <div class="data-summary" id="data-summary"></div>
+        <div class="data-actions">
+          <button class="btn btn-primary" id="btn-backup">⬇ Download Backup</button>
+          <button class="btn" id="btn-restore">⬆ Restore from Backup</button>
+          <button class="btn" id="btn-export-csv">Export Invoices (CSV)</button>
+          <input type="file" id="restore-file" accept="application/json,.json" hidden>
+        </div>
+      </div>
     </section>
 
   </main>

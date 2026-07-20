@@ -53,7 +53,7 @@ $$(".nav-link").forEach((btn) => {
     if (btn.dataset.view === "dashboard") renderDashboard();
     if (btn.dataset.view === "invoices") renderInvoicesTable();
     if (btn.dataset.view === "clients") renderClientsTable();
-    if (btn.dataset.view === "settings") renderSettingsForm();
+    if (btn.dataset.view === "settings") { renderSettingsForm(); renderDataSummary(); }
   });
 });
 
@@ -463,8 +463,87 @@ $("#btn-save-settings").addEventListener("click", () => {
   alert("Settings saved.");
 });
 
+// ---------- Data & backup ----------
+function renderDataSummary() {
+  const el = $("#data-summary");
+  if (!el) return;
+  el.textContent = `Currently stored in this browser: ${invoices.length} invoice${invoices.length === 1 ? "" : "s"} and ${clients.length} client${clients.length === 1 ? "" : "s"}.`;
+}
+
+function downloadFile(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+$("#btn-backup").addEventListener("click", () => {
+  const bundle = Storage.exportAll();
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadFile(`braised-backup-${stamp}.json`, JSON.stringify(bundle, null, 2), "application/json");
+});
+
+$("#btn-restore").addEventListener("click", () => $("#restore-file").click());
+
+$("#restore-file").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const bundle = JSON.parse(reader.result);
+      const summary = Storage.importMerge(bundle);
+      // Reload in-memory state from storage after the merge.
+      clients = Storage.getClients();
+      invoices = Storage.getInvoices();
+      settings = Storage.getSettings();
+      renderDashboard();
+      renderInvoicesTable();
+      renderClientsTable();
+      renderSettingsForm();
+      renderDataSummary();
+      alert(`Restore complete. Added ${summary.invoicesAdded} invoice(s) and ${summary.clientsAdded} client(s). Nothing was deleted.`);
+    } catch (err) {
+      alert("Couldn't restore this file. " + (err.message || "Make sure it's a Braised backup file."));
+    } finally {
+      e.target.value = ""; // allow re-importing the same file later
+    }
+  };
+  reader.readAsText(file);
+});
+
+function csvCell(value) {
+  const s = String(value == null ? "" : value);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+$("#btn-export-csv").addEventListener("click", () => {
+  if (invoices.length === 0) { alert("No invoices to export yet."); return; }
+  const header = ["Invoice #", "Client", "Company", "Issue Date", "Due Date", "Status", "Subtotal", "Tax", "Total", "Notes"];
+  const rows = [...invoices]
+    .sort((a, b) => (a.issueDate || "").localeCompare(b.issueDate || ""))
+    .map((inv) => {
+      const client = clients.find((c) => c.id === inv.clientId) || {};
+      const { subtotal, tax, total } = invoiceTotal(inv);
+      return [
+        inv.number, client.name || "", client.company || "",
+        inv.issueDate || "", inv.dueDate || "", effectiveStatus(inv),
+        subtotal.toFixed(2), tax.toFixed(2), total.toFixed(2), inv.notes || "",
+      ].map(csvCell).join(",");
+    });
+  const csv = [header.map(csvCell).join(","), ...rows].join("\r\n");
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadFile(`braised-invoices-${stamp}.csv`, csv, "text/csv");
+});
+
 // ---------- Init ----------
 renderDashboard();
 renderInvoicesTable();
 renderClientsTable();
 renderSettingsForm();
+renderDataSummary();
