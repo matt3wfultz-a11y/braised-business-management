@@ -14,6 +14,7 @@
     <button class="nav-link active" data-view="dashboard">Dashboard</button>
     <button class="nav-link" data-view="invoices">Invoices</button>
     <button class="nav-link" data-view="clients">Clients</button>
+    <button class="nav-link" data-view="reports">Reports</button>
     <button class="nav-link" data-view="settings">Settings</button>
   </nav>
 
@@ -25,7 +26,7 @@
       <div class="stat-grid">
         <div class="stat-card"><span class="stat-label">Outstanding</span><span class="stat-value" id="stat-outstanding">$0.00</span></div>
         <div class="stat-card"><span class="stat-label">Overdue</span><span class="stat-value danger" id="stat-overdue">$0.00</span></div>
-        <div class="stat-card"><span class="stat-label">Paid (all time)</span><span class="stat-value success" id="stat-paid">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Received (all time)</span><span class="stat-value success" id="stat-paid">$0.00</span></div>
         <div class="stat-card"><span class="stat-label">Draft</span><span class="stat-value" id="stat-draft">$0.00</span></div>
       </div>
       <h2 class="section-title">Recent Invoices</h2>
@@ -133,10 +134,12 @@
           <button class="btn" id="btn-edit-invoice">Edit</button>
           <button class="btn" id="btn-print-invoice">Print</button>
           <button class="btn" id="btn-download-pdf">Download PDF</button>
+          <button class="btn" id="btn-record-payment">＋ Record Payment</button>
           <button class="btn btn-primary" id="btn-send-invoice">Send via Email</button>
         </div>
       </header>
       <div class="invoice-paper" id="invoice-paper"></div>
+      <div class="payments-panel" id="payments-panel"></div>
     </section>
 
     <!-- CLIENTS -->
@@ -148,6 +151,45 @@
       <div class="table-wrap">
         <table id="clients-table">
           <thead><tr><th>Name</th><th>Company</th><th>Email</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="view-reports" class="view">
+      <header class="view-header">
+        <h1>Reports</h1>
+        <div class="header-actions">
+          <label class="year-label">Year
+            <select id="report-year"></select>
+          </label>
+        </div>
+      </header>
+
+      <div class="stat-grid">
+        <div class="stat-card"><span class="stat-label">Invoiced</span><span class="stat-value" id="rep-invoiced">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Collected</span><span class="stat-value success" id="rep-collected">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Outstanding</span><span class="stat-value" id="rep-outstanding">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Sales tax billed</span><span class="stat-value" id="rep-tax">$0.00</span></div>
+      </div>
+
+      <h2 class="section-title">Monthly invoiced</h2>
+      <div class="bar-chart" id="rep-monthly"></div>
+
+      <h2 class="section-title">Top clients</h2>
+      <div class="table-wrap">
+        <table id="rep-clients-table">
+          <thead><tr><th>Client</th><th>Invoices</th><th>Invoiced</th><th>Collected</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h2 class="section-title">Outstanding &amp; overdue (aging)</h2>
+      <p class="data-note" style="margin-top:-4px;">Unpaid balances across all years &mdash; who owes you money right now.</p>
+      <div class="table-wrap">
+        <table id="rep-aging-table">
+          <thead><tr><th>#</th><th>Client</th><th>Due</th><th>Age</th><th>Balance</th><th>Status</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -197,6 +239,21 @@
     <div class="modal-actions">
       <button class="btn" id="btn-cancel-client">Cancel</button>
       <button class="btn btn-primary" id="btn-save-client">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal-backdrop" id="payment-modal-backdrop">
+  <div class="modal">
+    <h2>Record Payment</h2>
+    <div class="form-field"><label>Date</label><input type="date" id="pay-date"></div>
+    <div class="form-field"><label>Amount</label><input type="number" id="pay-amount" min="0" step="0.01"></div>
+    <div class="form-field"><label>Method (optional)</label><input type="text" id="pay-method" placeholder="Bank transfer, PayPal, check…"></div>
+    <div class="form-field"><label>Note (optional)</label><input type="text" id="pay-note" placeholder="Deposit, milestone 1…"></div>
+    <div class="modal-actions">
+      <button class="btn" id="btn-cancel-payment">Cancel</button>
+      <button class="btn btn-primary" id="btn-save-payment">Save Payment</button>
     </div>
   </div>
 </div>

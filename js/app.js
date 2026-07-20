@@ -32,6 +32,18 @@ function invoiceTotal(inv) {
   return { subtotal, tax, total: subtotal + tax };
 }
 
+// Sum of recorded payments. Falls back to the full total for legacy invoices
+// that were marked "paid" before per-payment tracking existed.
+function amountPaid(inv) {
+  const recorded = (inv.payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  if (recorded === 0 && inv.status === "paid") return invoiceTotal(inv).total;
+  return recorded;
+}
+
+function balanceDue(inv) {
+  return Math.max(0, invoiceTotal(inv).total - amountPaid(inv));
+}
+
 function effectiveStatus(inv) {
   if (inv.status === "sent" && inv.dueDate) {
     const due = new Date(inv.dueDate + "T00:00:00");
@@ -53,21 +65,23 @@ $$(".nav-link").forEach((btn) => {
     if (btn.dataset.view === "dashboard") renderDashboard();
     if (btn.dataset.view === "invoices") renderInvoicesTable();
     if (btn.dataset.view === "clients") renderClientsTable();
+    if (btn.dataset.view === "reports") renderReports();
     if (btn.dataset.view === "settings") { renderSettingsForm(); renderDataSummary(); }
   });
 });
 
 // ---------- Dashboard ----------
 function renderDashboard() {
-  let outstanding = 0, overdue = 0, paid = 0, draft = 0;
+  let outstanding = 0, overdue = 0, received = 0, draft = 0;
   invoices.forEach((inv) => {
     const { total } = invoiceTotal(inv);
     const st = effectiveStatus(inv);
-    if (st === "paid") paid += total;
-    else if (st === "overdue") overdue += total;
-    else if (st === "sent") outstanding += total;
+    received += amountPaid(inv);           // actual cash collected, incl. partials
+    if (st === "overdue") overdue += balanceDue(inv);
+    else if (st === "sent") outstanding += balanceDue(inv);
     else if (st === "draft") draft += total;
   });
+  const paid = received;
   $("#stat-outstanding").textContent = fmtMoney(outstanding);
   $("#stat-overdue").textContent = fmtMoney(overdue);
   $("#stat-paid").textContent = fmtMoney(paid);
@@ -266,6 +280,8 @@ function openInvoiceView(invoiceId) {
   const inv = invoices.find((i) => i.id === invoiceId);
   const client = clients.find((c) => c.id === inv.clientId) || {};
   const { subtotal, tax, total } = invoiceTotal(inv);
+  const paid = amountPaid(inv);
+  const balance = balanceDue(inv);
   const st = effectiveStatus(inv);
 
   const itemsHtml = inv.items.map((it) => `
@@ -305,11 +321,93 @@ function openInvoiceView(invoiceId) {
       <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
       <div class="totals-row"><span>Tax</span><span>${fmtMoney(tax)}</span></div>
       <div class="totals-row totals-grand"><span>Total</span><span>${fmtMoney(total)}</span></div>
+      ${paid > 0 ? `<div class="totals-row"><span>Amount Paid</span><span>−${fmtMoney(paid)}</span></div>
+      <div class="totals-row totals-grand"><span>Balance Due</span><span>${fmtMoney(balance)}</span></div>` : ""}
     </div>
     ${inv.notes ? `<div style="margin-top:20px;"><strong>Notes</strong><p class="muted">${escapeHtml(inv.notes).replace(/\n/g, "<br>")}</p></div>` : ""}
   `;
+  renderPaymentsPanel(inv);
   showView("invoice-view");
 }
+
+// ---------- Payments ----------
+function renderPaymentsPanel(inv) {
+  const panel = $("#payments-panel");
+  const payments = inv.payments || [];
+  const paid = amountPaid(inv);
+  const balance = balanceDue(inv);
+  const rows = payments.length
+    ? payments
+        .map((p) => `<tr class="no-hover">
+            <td>${fmtDate(p.date)}</td>
+            <td>${fmtMoney(p.amount)}</td>
+            <td>${escapeHtml(p.method || "")}</td>
+            <td>${escapeHtml(p.note || "")}</td>
+            <td><button class="btn btn-small btn-danger" data-pay-id="${p.id}">Delete</button></td>
+          </tr>`)
+        .join("")
+    : `<tr class="no-hover"><td colspan="5" class="empty-state">No payments recorded yet.</td></tr>`;
+
+  panel.innerHTML = `
+    <div class="payments-head">
+      <h2 class="section-title" style="margin:0;">Payments</h2>
+      <div class="pay-summary">
+        <span>Paid <strong class="success">${fmtMoney(paid)}</strong></span>
+        <span>Balance <strong class="${balance > 0 ? "danger" : "success"}">${fmtMoney(balance)}</strong></span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Note</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  panel.querySelectorAll("[data-pay-id]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!confirm("Delete this payment?")) return;
+      inv.payments = (inv.payments || []).filter((p) => p.id !== btn.dataset.payId);
+      // Re-open the paid flag if the invoice is no longer fully covered.
+      if (inv.status === "paid" && balanceDue(inv) > 0.005) inv.status = "sent";
+      Storage.saveInvoices(invoices);
+      openInvoiceView(inv.id);
+    });
+  });
+}
+
+$("#btn-record-payment").addEventListener("click", () => {
+  const inv = invoices.find((i) => i.id === viewingInvoiceId);
+  if (!inv) return;
+  $("#pay-date").value = new Date().toISOString().slice(0, 10);
+  $("#pay-amount").value = balanceDue(inv).toFixed(2);
+  $("#pay-method").value = "";
+  $("#pay-note").value = "";
+  $("#payment-modal-backdrop").classList.add("active");
+});
+
+$("#btn-cancel-payment").addEventListener("click", () => $("#payment-modal-backdrop").classList.remove("active"));
+
+$("#btn-save-payment").addEventListener("click", () => {
+  const inv = invoices.find((i) => i.id === viewingInvoiceId);
+  if (!inv) return;
+  const amount = Number($("#pay-amount").value);
+  if (!amount || amount <= 0) { alert("Enter a payment amount greater than zero."); return; }
+  const payment = {
+    id: Storage.uid(),
+    date: $("#pay-date").value || new Date().toISOString().slice(0, 10),
+    amount,
+    method: $("#pay-method").value.trim(),
+    note: $("#pay-note").value.trim(),
+  };
+  inv.payments = (inv.payments || []).concat(payment);
+  // Auto-advance status: a payment means it's no longer a draft, and a fully
+  // covered balance marks it paid.
+  if (inv.status === "draft") inv.status = "sent";
+  if (balanceDue(inv) <= 0.005) inv.status = "paid";
+  Storage.saveInvoices(invoices);
+  $("#payment-modal-backdrop").classList.remove("active");
+  openInvoiceView(inv.id);
+});
 
 function escapeHtml(s) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -540,6 +638,98 @@ $("#btn-export-csv").addEventListener("click", () => {
   const stamp = new Date().toISOString().slice(0, 10);
   downloadFile(`braised-invoices-${stamp}.csv`, csv, "text/csv");
 });
+
+// ---------- Reports ----------
+function invoiceYear(inv) {
+  return (inv.issueDate || "").slice(0, 4);
+}
+
+function populateReportYears() {
+  const sel = $("#report-year");
+  const years = [...new Set(invoices.map(invoiceYear).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+  const thisYear = String(new Date().getFullYear());
+  if (!years.includes(thisYear)) years.unshift(thisYear);
+  const prev = sel.value;
+  sel.innerHTML = years.map((y) => `<option value="${y}">${y}</option>`).join("");
+  sel.value = years.includes(prev) ? prev : years[0];
+}
+
+function renderReports() {
+  populateReportYears();
+  const year = $("#report-year").value;
+  const inYear = invoices.filter((inv) => invoiceYear(inv) === year);
+
+  let invoiced = 0, collected = 0, tax = 0, outstanding = 0;
+  const months = new Array(12).fill(0);
+  const byClient = new Map();
+
+  inYear.forEach((inv) => {
+    const t = invoiceTotal(inv);
+    const paid = amountPaid(inv);
+    invoiced += t.total;
+    collected += paid;
+    tax += t.tax;
+    outstanding += balanceDue(inv);
+    const m = Number((inv.issueDate || "").slice(5, 7)) - 1;
+    if (m >= 0 && m < 12) months[m] += t.total;
+    const key = inv.clientId || "—";
+    const agg = byClient.get(key) || { count: 0, invoiced: 0, collected: 0 };
+    agg.count += 1; agg.invoiced += t.total; agg.collected += paid;
+    byClient.set(key, agg);
+  });
+
+  $("#rep-invoiced").textContent = fmtMoney(invoiced);
+  $("#rep-collected").textContent = fmtMoney(collected);
+  $("#rep-outstanding").textContent = fmtMoney(outstanding);
+  $("#rep-tax").textContent = fmtMoney(tax);
+
+  // Monthly bar chart
+  const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const peak = Math.max(...months, 1);
+  $("#rep-monthly").innerHTML = months.map((v, i) => `
+    <div class="bar-row">
+      <span class="bar-label">${names[i]}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${(v / peak) * 100}%"></span></span>
+      <span class="bar-value">${fmtMoney(v)}</span>
+    </div>`).join("");
+
+  // Top clients
+  const clientRows = [...byClient.entries()]
+    .sort((a, b) => b[1].invoiced - a[1].invoiced)
+    .map(([id, agg]) => `<tr class="no-hover"><td>${escapeHtml(clientName(id))}</td><td>${agg.count}</td><td>${fmtMoney(agg.invoiced)}</td><td>${fmtMoney(agg.collected)}</td></tr>`)
+    .join("");
+  $("#rep-clients-table tbody").innerHTML = clientRows ||
+    `<tr class="no-hover"><td colspan="4" class="empty-state">No invoices in ${year}.</td></tr>`;
+
+  // Aging — all unpaid balances across all years
+  const today = new Date(new Date().toDateString());
+  const aging = invoices
+    .filter((inv) => balanceDue(inv) > 0.005 && effectiveStatus(inv) !== "draft")
+    .map((inv) => {
+      const due = inv.dueDate ? new Date(inv.dueDate + "T00:00:00") : null;
+      const days = due ? Math.floor((today - due) / 86400000) : null;
+      return { inv, days };
+    })
+    .sort((a, b) => (b.days ?? -Infinity) - (a.days ?? -Infinity));
+  const agingRows = aging.map(({ inv, days }) => {
+    const st = effectiveStatus(inv);
+    const age = days == null ? "—" : days > 0 ? `${days}d overdue` : `due in ${-days}d`;
+    const ageClass = days != null && days > 0 ? "danger" : "";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${inv.number}</td><td>${escapeHtml(clientName(inv.clientId))}</td><td>${fmtDate(inv.dueDate)}</td><td class="${ageClass}">${age}</td><td>${fmtMoney(balanceDue(inv))}</td><td><span class="status-badge status-${st}">${st}</span></td>`;
+    tr.addEventListener("click", () => openInvoiceView(inv.id));
+    return tr;
+  });
+  const agingBody = $("#rep-aging-table tbody");
+  agingBody.innerHTML = "";
+  if (agingRows.length === 0) {
+    agingBody.innerHTML = `<tr class="no-hover"><td colspan="6" class="empty-state">Nothing outstanding — you're all paid up. 🎉</td></tr>`;
+  } else {
+    agingRows.forEach((tr) => agingBody.appendChild(tr));
+  }
+}
+
+$("#report-year").addEventListener("change", renderReports);
 
 // ---------- Init ----------
 renderDashboard();
