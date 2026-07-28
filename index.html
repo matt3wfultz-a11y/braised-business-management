@@ -131,6 +131,7 @@
         <div class="header-actions">
           <button class="btn" id="btn-back-from-view">Back</button>
           <button class="btn" id="btn-edit-invoice">Edit</button>
+          <button class="btn" id="btn-duplicate-invoice">Duplicate</button>
           <button class="btn" id="btn-print-invoice">Print</button>
           <button class="btn" id="btn-download-pdf">Download PDF</button>
           <button class="btn btn-primary" id="btn-send-invoice">Send via Email</button>
@@ -160,6 +161,13 @@
         <div class="form-field"><label>Business Name</label><input type="text" id="set-business-name"></div>
         <div class="form-field"><label>Business Email</label><input type="email" id="set-business-email"></div>
         <div class="form-field"><label>Currency Symbol</label><input type="text" id="set-currency" maxlength="3" placeholder="$"></div>
+        <div class="form-field">
+          <label>Send Email With</label>
+          <select id="set-email-method">
+            <option value="gmail">Gmail (opens in browser)</option>
+            <option value="mailto">Default mail app</option>
+          </select>
+        </div>
         <div class="form-field" style="grid-column: 1 / -1;"><label>Business Address</label><textarea id="set-business-address" rows="2"></textarea></div>
       </div>
       <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
@@ -179,6 +187,19 @@
     <div class="modal-actions">
       <button class="btn" id="btn-cancel-client">Cancel</button>
       <button class="btn btn-primary" id="btn-save-client">Save Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- Send invoice modal -->
+<div class="modal-backdrop" id="send-modal-backdrop">
+  <div class="modal">
+    <h2 id="send-modal-title">Send Invoice</h2>
+    <p class="modal-note" id="send-modal-to"></p>
+    <p class="modal-note" id="send-modal-status"></p>
+    <div class="modal-actions">
+      <button class="btn" id="btn-cancel-send">Cancel</button>
+      <button class="btn btn-primary" id="btn-open-gmail">Open Gmail →</button>
     </div>
   </div>
 </div>

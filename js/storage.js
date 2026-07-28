@@ -34,6 +34,7 @@ const Storage = (() => {
         businessEmail: "",
         businessAddress: "",
         currency: "$",
+        emailMethod: "gmail",
       });
     },
     saveSettings(settings) { write(KEYS.settings, settings); },

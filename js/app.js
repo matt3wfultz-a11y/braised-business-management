@@ -117,9 +117,12 @@ function renderInvoicesTable() {
     const { total } = invoiceTotal(inv);
     const st = effectiveStatus(inv);
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${inv.number}</td><td>${clientName(inv.clientId)}</td><td>${fmtDate(inv.issueDate)}</td><td>${fmtDate(inv.dueDate)}</td><td>${fmtMoney(total)}</td><td><span class="status-badge status-${st}">${st}</span></td><td><button class="btn btn-small btn-danger" data-id="${inv.id}">Delete</button></td>`;
-    tr.querySelector("td:last-child").addEventListener("click", (e) => {
-      e.stopPropagation();
+    tr.innerHTML = `<td>${inv.number}</td><td>${clientName(inv.clientId)}</td><td>${fmtDate(inv.issueDate)}</td><td>${fmtDate(inv.dueDate)}</td><td>${fmtMoney(total)}</td><td><span class="status-badge status-${st}">${st}</span></td><td class="row-actions"><button class="btn btn-small" data-act="copy">Copy</button><button class="btn btn-small btn-danger" data-act="del">Delete</button></td>`;
+
+    const actions = tr.querySelector(".row-actions");
+    actions.addEventListener("click", (e) => e.stopPropagation());
+    actions.querySelector('[data-act="copy"]').addEventListener("click", () => duplicateInvoice(inv.id));
+    actions.querySelector('[data-act="del"]').addEventListener("click", () => {
       if (confirm("Delete this invoice?")) {
         invoices = invoices.filter((i) => i.id !== inv.id);
         Storage.saveInvoices(invoices);
@@ -140,9 +143,29 @@ function populateClientSelect() {
   sel.innerHTML = clients.map((c) => `<option value="${c.id}">${c.name}${c.company ? " — " + c.company : ""}</option>`).join("");
 }
 
+// Highest trailing number across existing invoices, +1. Counting invoices isn't
+// enough once any have been deleted or duplicated — that reuses numbers.
 function nextInvoiceNumber() {
-  const n = invoices.length + 1;
-  return "INV-" + String(n).padStart(4, "0");
+  let highest = 0;
+  invoices.forEach((inv) => {
+    const match = String(inv.number || "").match(/(\d+)\s*$/);
+    if (match) highest = Math.max(highest, parseInt(match[1], 10));
+  });
+  return "INV-" + String(Math.max(highest, invoices.length) + 1).padStart(4, "0");
+}
+
+// toISOString() is UTC, which lands on the wrong day for anyone west of GMT.
+function toDateInput(date) {
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+// Days between issue and due on an existing invoice, so a copy keeps the same terms.
+function paymentTermDays(inv) {
+  if (!inv.issueDate || !inv.dueDate) return 14;
+  const days = Math.round(
+    (new Date(inv.dueDate + "T00:00:00") - new Date(inv.issueDate + "T00:00:00")) / 86400000
+  );
+  return Number.isFinite(days) && days >= 0 ? days : 14;
 }
 
 function addItemRow(item) {
@@ -187,7 +210,8 @@ function recalcTotals() {
 $("#inv-tax-rate").addEventListener("input", recalcTotals);
 $("#btn-add-item").addEventListener("click", () => addItemRow());
 
-function openInvoiceEditor(invoiceId) {
+// invoiceId => edit that invoice. copyOf => start a new invoice seeded from it.
+function openInvoiceEditor(invoiceId, copyOf) {
   if (clients.length === 0) {
     alert("Add a client first before creating an invoice.");
     showView("clients");
@@ -209,23 +233,43 @@ function openInvoiceEditor(invoiceId) {
     $("#inv-notes").value = inv.notes || "";
     inv.items.forEach(addItemRow);
   } else {
-    $("#editor-title").textContent = "New Invoice";
-    $("#inv-client").selectedIndex = 0;
-    $("#inv-number").value = nextInvoiceNumber();
-    $("#inv-issue-date").value = new Date().toISOString().slice(0, 10);
+    // A copy reuses the client, line items, tax rate, notes and payment terms —
+    // but gets a fresh number, today's dates and draft status.
+    const today = new Date();
     const due = new Date();
-    due.setDate(due.getDate() + 14);
-    $("#inv-due-date").value = due.toISOString().slice(0, 10);
-    $("#inv-tax-rate").value = 0;
+    due.setDate(due.getDate() + (copyOf ? paymentTermDays(copyOf) : 14));
+
+    $("#editor-title").textContent = copyOf ? `New Invoice — copy of ${copyOf.number}` : "New Invoice";
+    $("#inv-number").value = nextInvoiceNumber();
+    $("#inv-issue-date").value = toDateInput(today);
+    $("#inv-due-date").value = toDateInput(due);
     $("#inv-status").value = "draft";
-    $("#inv-notes").value = "";
-    addItemRow();
+
+    if (copyOf) {
+      $("#inv-client").value = copyOf.clientId;
+      $("#inv-tax-rate").value = copyOf.taxRate || 0;
+      $("#inv-notes").value = copyOf.notes || "";
+      (copyOf.items || []).forEach(addItemRow);
+    } else {
+      $("#inv-client").selectedIndex = 0;
+      $("#inv-tax-rate").value = 0;
+      $("#inv-notes").value = "";
+    }
+    if (!$$("#items-tbody tr").length) addItemRow();
   }
   recalcTotals();
   showView("invoice-editor");
 }
 
+// Copies are unsaved until the user hits Save, so nothing is created by accident.
+function duplicateInvoice(sourceId) {
+  const source = invoices.find((i) => i.id === sourceId);
+  if (!source) return;
+  openInvoiceEditor(null, source);
+}
+
 $("#btn-new-invoice").addEventListener("click", () => openInvoiceEditor(null));
+$("#btn-duplicate-invoice").addEventListener("click", () => duplicateInvoice(viewingInvoiceId));
 $("#btn-cancel-invoice").addEventListener("click", () => showView("invoices"));
 
 $("#btn-save-invoice").addEventListener("click", () => {
@@ -324,40 +368,80 @@ $("#btn-print-invoice").addEventListener("click", () => {
   setTimeout(() => $("#view-invoice-view").classList.remove("printing"), 500);
 });
 
-$("#btn-download-pdf").addEventListener("click", async () => {
-  const inv = invoices.find((i) => i.id === viewingInvoiceId);
-  const btn = $("#btn-download-pdf");
-  const originalLabel = btn.textContent;
-  btn.textContent = "Generating...";
-  btn.disabled = true;
-  try {
-    const node = $("#invoice-paper");
-    const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#fdfdfb" });
-    const imgData = canvas.toDataURL("image/png");
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
+// Renders the on-screen invoice to a jsPDF doc. Shared by Download and Send.
+async function buildInvoicePdf() {
+  const canvas = await html2canvas($("#invoice-paper"), { scale: 2, backgroundColor: "#fdfdfb" });
+  const imgData = canvas.toDataURL("image/png");
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  let heightLeft = imgHeight;
+  let position = 0;
+  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight;
+    pdf.addPage();
     pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
-    pdf.save(`${inv.number}.pdf`);
-  } catch (e) {
-    alert("Couldn't generate PDF. Try Print instead.");
+  }
+  return pdf;
+}
+
+async function withBusyButton(btn, label, fn) {
+  const originalLabel = btn.textContent;
+  btn.textContent = label;
+  btn.disabled = true;
+  try {
+    return await fn();
   } finally {
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
+}
+
+$("#btn-download-pdf").addEventListener("click", () => {
+  const inv = invoices.find((i) => i.id === viewingInvoiceId);
+  return withBusyButton($("#btn-download-pdf"), "Generating...", async () => {
+    try {
+      (await buildInvoicePdf()).save(`${inv.number}.pdf`);
+    } catch (e) {
+      alert("Couldn't generate PDF. Try Print instead.");
+    }
+  });
 });
+
+// ---------- Sending ----------
+function composeEmail(inv, client) {
+  const { total } = invoiceTotal(inv);
+  const business = settings.businessName || "Your Business";
+  const subject = `Invoice ${inv.number} from ${business}`;
+  const body =
+    `Hi ${client.name},\n\nPlease find invoice ${inv.number} for ${fmtMoney(total)}, due ${fmtDate(inv.dueDate)}.\n\n` +
+    inv.items.map((it) => `- ${it.description}: ${it.qty} x ${fmtMoney(it.rate)} = ${fmtMoney(it.qty * it.rate)}`).join("\n") +
+    `\n\nTotal due: ${fmtMoney(total)}\n\n${inv.notes || ""}\n\nThanks,\n${settings.businessName || ""}`;
+  return { subject, body };
+}
+
+function gmailComposeUrl(to, subject, body) {
+  return "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
+    "&to=" + encodeURIComponent(to) +
+    "&su=" + encodeURIComponent(subject) +
+    "&body=" + encodeURIComponent(body);
+}
+
+function markInvoiceSent(inv) {
+  if (inv.status === "draft") {
+    inv.status = "sent";
+    Storage.saveInvoices(invoices);
+    openInvoiceView(inv.id);
+  }
+}
+
+let pendingSend = null; // { invoiceId, url }
 
 $("#btn-send-invoice").addEventListener("click", () => {
   const inv = invoices.find((i) => i.id === viewingInvoiceId);
@@ -366,20 +450,51 @@ $("#btn-send-invoice").addEventListener("click", () => {
     alert("This client has no email address on file. Add one in Clients.");
     return;
   }
-  const { total } = invoiceTotal(inv);
-  const subject = encodeURIComponent(`Invoice ${inv.number} from ${settings.businessName || "Your Business"}`);
-  const body = encodeURIComponent(
-    `Hi ${client.name},\n\nPlease find invoice ${inv.number} for ${fmtMoney(total)}, due ${fmtDate(inv.dueDate)}.\n\n` +
-    inv.items.map((it) => `- ${it.description}: ${it.qty} x ${fmtMoney(it.rate)} = ${fmtMoney(it.qty * it.rate)}`).join("\n") +
-    `\n\nTotal due: ${fmtMoney(total)}\n\n${inv.notes || ""}\n\nThanks,\n${settings.businessName || ""}`
-  );
-  window.location.href = `mailto:${client.email}?subject=${subject}&body=${body}`;
+  const { subject, body } = composeEmail(inv, client);
 
-  if (inv.status === "draft") {
-    inv.status = "sent";
-    Storage.saveInvoices(invoices);
-    openInvoiceView(inv.id);
+  if ((settings.emailMethod || "gmail") === "mailto") {
+    window.location.href =
+      `mailto:${encodeURIComponent(client.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    markInvoiceSent(inv);
+    return;
   }
+
+  // Gmail has no way to attach a file from a compose link, so download the PDF
+  // first and hand the user a Gmail tab with everything else already filled in.
+  return withBusyButton($("#btn-send-invoice"), "Preparing...", async () => {
+    let filename = null;
+    try {
+      filename = `${inv.number}.pdf`;
+      (await buildInvoicePdf()).save(filename);
+    } catch (e) {
+      filename = null;
+    }
+    pendingSend = { invoiceId: inv.id, url: gmailComposeUrl(client.email, subject, body) };
+
+    $("#send-modal-title").textContent = `Send Invoice ${inv.number}`;
+    $("#send-modal-to").innerHTML = `To <strong>${escapeHtml(client.email)}</strong> — subject and message are filled in for you.`;
+    const status = $("#send-modal-status");
+    status.classList.toggle("warn", !filename);
+    status.innerHTML = filename
+      ? `<strong>${escapeHtml(filename)}</strong> has been downloaded. Gmail can't attach it automatically from a link, so drag it into the Gmail window or use the paperclip button before you send.`
+      : `The PDF couldn't be generated. You can still send the message, or go back and use Print to save a copy.`;
+    $("#send-modal-backdrop").classList.add("active");
+  });
+});
+
+$("#btn-cancel-send").addEventListener("click", () => {
+  pendingSend = null;
+  $("#send-modal-backdrop").classList.remove("active");
+});
+
+// Opened from a real click so the browser doesn't treat it as a blocked popup.
+$("#btn-open-gmail").addEventListener("click", () => {
+  if (!pendingSend) return;
+  window.open(pendingSend.url, "_blank", "noopener");
+  const inv = invoices.find((i) => i.id === pendingSend.invoiceId);
+  pendingSend = null;
+  $("#send-modal-backdrop").classList.remove("active");
+  if (inv) markInvoiceSent(inv);
 });
 
 // ---------- Clients ----------
@@ -449,6 +564,7 @@ function renderSettingsForm() {
   $("#set-business-name").value = settings.businessName || "";
   $("#set-business-email").value = settings.businessEmail || "";
   $("#set-currency").value = settings.currency || "$";
+  $("#set-email-method").value = settings.emailMethod || "gmail";
   $("#set-business-address").value = settings.businessAddress || "";
 }
 
@@ -457,6 +573,7 @@ $("#btn-save-settings").addEventListener("click", () => {
     businessName: $("#set-business-name").value.trim(),
     businessEmail: $("#set-business-email").value.trim(),
     currency: $("#set-currency").value.trim() || "$",
+    emailMethod: $("#set-email-method").value,
     businessAddress: $("#set-business-address").value.trim(),
   };
   Storage.saveSettings(settings);
