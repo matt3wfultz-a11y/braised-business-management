@@ -25,6 +25,15 @@ python3 -m http.server 8000
 
 ## Deploying to GitHub Pages
 
+> **Bump the cache buster when you change CSS or JS.** `index.html` loads
+> `css/style.css?v=N`, `js/storage.js?v=N` and `js/app.js?v=N`. Raise `N` in all
+> three whenever you edit those files. GitHub Pages sends the same cache headers
+> for the HTML and its assets, but browsers revalidate the page far more eagerly
+> than the files it references — so without a new `?v=`, visitors get the new
+> markup running last deploy's JavaScript. New buttons render and silently do
+> nothing.
+
+
 1. Push this repo to GitHub.
 2. In **Settings → Pages**, set the source to the `main` branch, root folder.
 3. Your site will be live at `https://<username>.github.io/<repo>/`.
