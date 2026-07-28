@@ -209,6 +209,12 @@ tbody tr.no-hover:hover { background: inherit; cursor: default; }
 }
 .modal h2 { margin: 0 0 4px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.modal-note { margin: 0; font-size: 0.9rem; line-height: 1.5; color: var(--muted); }
+.modal-note strong { color: var(--ink); }
+.modal-note.warn { color: var(--danger); }
+
+.row-actions { white-space: nowrap; }
+.row-actions .btn + .btn { margin-left: 6px; }
 
 .empty-state { padding: 30px; text-align: center; color: var(--muted); }
 
