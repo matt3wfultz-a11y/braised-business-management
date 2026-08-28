@@ -8,12 +8,25 @@ A lightweight, Bonsai-inspired invoicing tool that runs entirely in the browser 
 - **Invoices** — create invoices with line items, tax rate, due dates, and notes
 - **Duplicate** — copy any invoice into a new draft, from the invoice list or the invoice view
 - **Tracking** — dashboard with outstanding / overdue / paid / draft totals, invoice status badges (auto-flips to "overdue" past the due date)
+- **Status** — set draft / sent / paid from a dropdown in the invoice header, saved immediately
 - **Send** — downloads the invoice PDF and opens a pre-filled Gmail compose window (or your default mail app — switchable in Settings)
 - **Print / PDF** — clean printable invoice view (use your browser's "Save as PDF")
 
 ### Duplicating an invoice
 
 Hit **Copy** on a row in the invoice list, or **Duplicate** while viewing an invoice. The copy keeps the client, line items, tax rate and notes, and reuses the original's payment terms — a 30-day invoice copied today is due 30 days from today. It gets the next invoice number, today's issue date, and `draft` status. Nothing is written until you press **Save Invoice**, so the original is never touched.
+
+### Changing an invoice's status
+
+Open an invoice and use the **Status** dropdown in the header — it saves as soon
+as you pick. The Edit screen has the same dropdown if you're already in there.
+
+`overdue` isn't in either dropdown, because it isn't a status you set: a `sent`
+invoice displays as overdue automatically once its due date passes, and goes back
+to `sent` if you push the due date out. When that's happening the header shows
+`Sent · past due` next to the dropdown, so the control and the badge don't look
+like they disagree. Marking the invoice `paid` clears it. The status filter on the
+invoice list still offers Overdue, since that filters on what's displayed.
 
 ## Running locally
 

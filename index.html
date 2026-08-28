@@ -9,7 +9,7 @@
      change, otherwise browsers keep serving the previous deploy's copy from
      disk cache while loading this (freshly revalidated) HTML — which shows new
      markup wired to old JavaScript. -->
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 <div class="app">
@@ -97,12 +97,11 @@
           <input type="number" id="inv-tax-rate" min="0" step="0.01" value="0">
         </div>
         <div class="form-field">
-          <label>Status</label>
+          <label>Status <span class="label-hint">— overdue is automatic</span></label>
           <select id="inv-status">
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
             <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
           </select>
         </div>
       </div>
@@ -133,6 +132,15 @@
       <header class="view-header">
         <h1>Invoice</h1>
         <div class="header-actions">
+          <div class="status-control">
+            <label for="view-status">Status</label>
+            <select id="view-status">
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="paid">Paid</option>
+            </select>
+            <span class="status-hint" id="status-hint"></span>
+          </div>
           <button class="btn" id="btn-back-from-view">Back</button>
           <button class="btn" id="btn-edit-invoice">Edit</button>
           <button class="btn" id="btn-duplicate-invoice">Duplicate</button>
@@ -210,7 +218,7 @@
 
 <script src="js/vendor/jspdf.umd.min.js"></script>
 <script src="js/vendor/html2canvas.min.js"></script>
-<script src="js/storage.js?v=2"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/storage.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>

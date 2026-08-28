@@ -40,6 +40,13 @@ function effectiveStatus(inv) {
   return inv.status;
 }
 
+// "overdue" is derived by effectiveStatus(), never something you pick — it's a
+// sent invoice past its due date. Invoices saved as "overdue" before the status
+// dropdowns dropped that option read back as "sent", which is what they mean.
+function settableStatus(status) {
+  return status === "overdue" ? "sent" : status;
+}
+
 // ---------- Navigation ----------
 function showView(name) {
   $$(".view").forEach((v) => v.classList.remove("active"));
@@ -229,7 +236,7 @@ function openInvoiceEditor(invoiceId, copyOf) {
     $("#inv-issue-date").value = inv.issueDate;
     $("#inv-due-date").value = inv.dueDate;
     $("#inv-tax-rate").value = inv.taxRate;
-    $("#inv-status").value = inv.status;
+    $("#inv-status").value = settableStatus(inv.status);
     $("#inv-notes").value = inv.notes || "";
     inv.items.forEach(addItemRow);
   } else {
@@ -352,8 +359,23 @@ function openInvoiceView(invoiceId) {
     </div>
     ${inv.notes ? `<div style="margin-top:20px;"><strong>Notes</strong><p class="muted">${escapeHtml(inv.notes).replace(/\n/g, "<br>")}</p></div>` : ""}
   `;
+
+  // The header control tracks the stored status; the badge above shows the
+  // derived one, so flag when they differ rather than looking contradictory.
+  $("#view-status").value = settableStatus(inv.status);
+  $("#status-hint").textContent = st === "overdue" ? "· past due" : "";
+
   showView("invoice-view");
 }
+
+// Change status straight from the invoice, without a trip through the editor.
+$("#view-status").addEventListener("change", () => {
+  const inv = invoices.find((i) => i.id === viewingInvoiceId);
+  if (!inv) return;
+  inv.status = $("#view-status").value;
+  Storage.saveInvoices(invoices);
+  openInvoiceView(inv.id);
+});
 
 function escapeHtml(s) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
