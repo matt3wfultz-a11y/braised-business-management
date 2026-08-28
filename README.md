@@ -8,7 +8,7 @@ A lightweight, Bonsai-inspired invoicing tool that runs entirely in the browser 
 - **Invoices** — create invoices with line items, tax rate, due dates, and notes
 - **Duplicate** — copy any invoice into a new draft, from the invoice list or the invoice view
 - **Tracking** — dashboard with outstanding / overdue / paid / draft totals, invoice status badges (auto-flips to "overdue" past the due date)
-- **Status** — set draft / sent / paid from a dropdown in the invoice header, saved immediately
+- **Status** — set draft / sent / paid from the invoice header or straight from the dashboard's Recent Invoices rows, saved immediately
 - **Send** — downloads the invoice PDF and opens a pre-filled Gmail compose window (or your default mail app — switchable in Settings)
 - **Print / PDF** — clean printable invoice view (use your browser's "Save as PDF")
 
@@ -20,6 +20,10 @@ Hit **Copy** on a row in the invoice list, or **Duplicate** while viewing an inv
 
 Open an invoice and use the **Status** dropdown in the header — it saves as soon
 as you pick. The Edit screen has the same dropdown if you're already in there.
+
+The dashboard's **Recent Invoices** rows carry the same dropdown, so you can mark
+things paid without opening them; the stat cards above update as you go. Clicking
+the dropdown won't open the invoice — the rest of the row still does.
 
 `overdue` isn't in either dropdown, because it isn't a status you set: a `sent`
 invoice displays as overdue automatically once its due date passes, and goes back

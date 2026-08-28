@@ -47,6 +47,33 @@ function settableStatus(status) {
   return status === "overdue" ? "sent" : status;
 }
 
+// An inline status picker for table rows. The dot keeps the colour-at-a-glance
+// the old badge gave; "overdue" is derived so it shows as a past-due marker on
+// the stored status rather than as a pickable option.
+function statusCellHtml(inv) {
+  const st = effectiveStatus(inv);
+  const current = settableStatus(inv.status);
+  const options = [["draft", "Draft"], ["sent", "Sent"], ["paid", "Paid"]]
+    .map(([v, label]) => `<option value="${v}"${v === current ? " selected" : ""}>${label}</option>`)
+    .join("");
+  return `<div class="status-cell">
+      <span class="status-dot status-${st}"></span>
+      <select class="status-select">${options}</select>
+      ${st === "overdue" ? `<span class="status-hint">past due</span>` : ""}
+    </div>`;
+}
+
+// Saves on change, and keeps the click off any row handler underneath.
+function wireStatusCell(row, inv, afterChange) {
+  const cell = row.querySelector(".status-cell");
+  cell.addEventListener("click", (e) => e.stopPropagation());
+  cell.querySelector("select").addEventListener("change", (e) => {
+    inv.status = e.target.value;
+    Storage.saveInvoices(invoices);
+    afterChange();
+  });
+}
+
 // ---------- Navigation ----------
 function showView(name) {
   $$(".view").forEach((v) => v.classList.remove("active"));
@@ -89,9 +116,10 @@ function renderDashboard() {
   }
   recent.forEach((inv) => {
     const { total } = invoiceTotal(inv);
-    const st = effectiveStatus(inv);
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${inv.number}</td><td>${clientName(inv.clientId)}</td><td>${fmtDate(inv.issueDate)}</td><td>${fmtDate(inv.dueDate)}</td><td>${fmtMoney(total)}</td><td><span class="status-badge status-${st}">${st}</span></td>`;
+    tr.innerHTML = `<td>${inv.number}</td><td>${clientName(inv.clientId)}</td><td>${fmtDate(inv.issueDate)}</td><td>${fmtDate(inv.dueDate)}</td><td>${fmtMoney(total)}</td><td>${statusCellHtml(inv)}</td>`;
+    // Re-render the whole dashboard so the stat cards move with the change.
+    wireStatusCell(tr, inv, renderDashboard);
     tr.addEventListener("click", () => openInvoiceView(inv.id));
     tbody.appendChild(tr);
   });

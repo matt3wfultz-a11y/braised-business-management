@@ -153,6 +153,29 @@ tbody tr.no-hover:hover { background: inherit; cursor: default; }
 .status-paid { background: #e1f3e6; color: var(--success); }
 .status-overdue { background: #fbe5e2; color: var(--danger); }
 
+/* Inline status picker used in table rows. */
+.status-cell { display: flex; align-items: center; gap: 8px; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+/* The badge palette is pale pill backgrounds meant to sit under dark text; at
+   dot size on a dark row those all read as the same off-white, so use the
+   saturated version of each status colour instead. */
+.status-dot.status-draft { background: var(--muted); }
+.status-dot.status-sent { background: #5b8ede; }
+.status-dot.status-paid { background: var(--success); }
+.status-dot.status-overdue { background: var(--danger); }
+.status-select {
+  background: #232323;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.status-select:hover { background: #2c2c2c; }
+.status-cell .status-hint { font-size: 0.75rem; white-space: nowrap; }
+
 .toolbar { display: flex; gap: 10px; margin-bottom: 16px; }
 .toolbar input, .toolbar select { padding: 8px 12px; border-radius: var(--radius); border: 1px solid var(--line); font-size: 0.9rem; }
 .toolbar input { flex: 1; }
