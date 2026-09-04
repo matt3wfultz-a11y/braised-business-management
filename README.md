@@ -5,12 +5,58 @@ A lightweight, Bonsai-inspired invoicing tool that runs entirely in the browser 
 ## Features
 
 - **Clients** — store name, company, email, and address
+- **Estimates** — the document that goes out before the work: project scope, a
+  priced proposal, terms & conditions and a signature block, with one click to
+  turn an accepted one into an invoice
 - **Invoices** — create invoices with line items, tax rate, due dates, and notes
 - **Duplicate** — copy any invoice into a new draft, from the invoice list or the invoice view
 - **Tracking** — dashboard with outstanding / overdue / paid / draft totals, invoice status badges (auto-flips to "overdue" past the due date)
 - **Status** — set draft / sent / paid from the invoice header or straight from the dashboard's Recent Invoices rows, saved immediately
 - **Send** — downloads the invoice PDF and opens a pre-filled Gmail compose window (or your default mail app — switchable in Settings)
-- **Print / PDF** — clean printable invoice view (use your browser's "Save as PDF")
+- **Print / PDF** — clean printable invoice and estimate views (use your browser's "Save as PDF")
+
+## Estimates
+
+An estimate is the thing you send *before* the work: what you're making, what it
+costs, and what the client is agreeing to. It carries the parts an invoice
+doesn't need — a project title, a scope block, terms & conditions, an optional
+deposit and a signature line — and it expires instead of falling overdue.
+
+### Building one
+
+**Estimates → + New Estimate.** The scope and terms tables start pre-filled from
+**Settings → Estimate Defaults**, so most estimates are a matter of filling in
+the deliverables and the line items. Both tables are free-form label/detail
+rows: rename them, add rows, delete the ones you don't need. A row left empty is
+dropped, and a section with no rows at all disappears from the document.
+
+Set **Deposit (%)** to put a "30% deposit on acceptance" line under the total —
+leave it at 0 and the line doesn't appear. **Valid Until** defaults to the
+validity window in Settings and is printed on the page as the date the signature
+is due back.
+
+Saving takes you straight to the finished document, which is what you send:
+**Download PDF**, **Print**, or **Send via Email** (same flow as invoices — the
+PDF downloads and Gmail opens with the message filled in).
+
+### Statuses
+
+`draft → sent → accepted` or `declined`. Like `overdue` on an invoice, `expired`
+isn't a status you pick: a `sent` estimate shows as expired once it's past its
+valid-until date, and goes back to `sent` if you push the date out. Accepted and
+declined estimates are settled, so they never expire.
+
+Only `accepted`, `declined` and `expired` are stamped on the document itself —
+the client has no use for "draft" printed across the page they're reading.
+
+### Turning one into an invoice
+
+**Convert to Invoice** on an accepted estimate opens a new invoice pre-filled
+with the client, line items and tax rate, with the estimate's payment terms
+carried into the invoice notes so you bill under what they agreed to. Nothing is
+written until you press **Save Invoice** — at which point the estimate is marked
+accepted and shows "Invoiced as INV-000N" above the document. That note is app
+chrome, so it never appears in the PDF.
 
 ### Duplicating an invoice
 
@@ -58,5 +104,11 @@ python3 -m http.server 8000
 ## Notes / limitations
 
 Since this is a static site with no server, all data is stored locally in your browser (`localStorage`). It won't sync across devices or browsers, and clearing browser data will erase it. "Sending" an invoice opens a pre-filled email rather than emailing through a backend service.
+
+Estimates and invoices are rasterised to a PDF by `html2canvas`, which means the
+page you see is exactly the page that gets sent. Pages are cut at the nearest
+block boundary rather than at a fixed height, so a term or a line item never
+gets sliced in half, and the image is embedded as JPEG — the same page as a PNG
+runs to about 22 MB, which is past what you can attach to an email.
 
 **The PDF can't be attached automatically.** Gmail's compose link accepts a recipient, subject and body, but there is no URL parameter for attachments — no website can put a file into your Gmail draft. So **Send via Email** downloads the invoice PDF and opens Gmail with everything else filled in; you drag the PDF in or use the paperclip. Genuine one-click attaching would need the Gmail API with OAuth sign-in and a Google Cloud project, which means this app would no longer be a pure static site.

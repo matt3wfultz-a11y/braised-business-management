@@ -9,7 +9,7 @@
      change, otherwise browsers keep serving the previous deploy's copy from
      disk cache while loading this (freshly revalidated) HTML — which shows new
      markup wired to old JavaScript. -->
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -17,6 +17,7 @@
     <div class="brand">Braised <span class="accent">Animation</span></div>
     <button class="nav-link active" data-view="dashboard">Dashboard</button>
     <button class="nav-link" data-view="invoices">Invoices</button>
+    <button class="nav-link" data-view="estimates">Estimates</button>
     <button class="nav-link" data-view="clients">Clients</button>
     <button class="nav-link" data-view="settings">Settings</button>
   </nav>
@@ -26,16 +27,33 @@
     <!-- DASHBOARD -->
     <section id="view-dashboard" class="view active">
       <header class="view-header"><h1>Dashboard</h1></header>
+      <h2 class="section-title section-title-flush">Invoices</h2>
       <div class="stat-grid">
         <div class="stat-card"><span class="stat-label">Outstanding</span><span class="stat-value" id="stat-outstanding">$0.00</span></div>
         <div class="stat-card"><span class="stat-label">Overdue</span><span class="stat-value danger" id="stat-overdue">$0.00</span></div>
         <div class="stat-card"><span class="stat-label">Paid (all time)</span><span class="stat-value success" id="stat-paid">$0.00</span></div>
         <div class="stat-card"><span class="stat-label">Draft</span><span class="stat-value" id="stat-draft">$0.00</span></div>
       </div>
+      <h2 class="section-title">Estimates</h2>
+      <div class="stat-grid">
+        <div class="stat-card"><span class="stat-label">Open</span><span class="stat-value" id="stat-est-open">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Expired</span><span class="stat-value danger" id="stat-est-expired">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Accepted (all time)</span><span class="stat-value success" id="stat-est-accepted">$0.00</span></div>
+        <div class="stat-card"><span class="stat-label">Draft</span><span class="stat-value" id="stat-est-draft">$0.00</span></div>
+      </div>
+
       <h2 class="section-title">Recent Invoices</h2>
       <div class="table-wrap">
         <table id="recent-invoices-table">
           <thead><tr><th>#</th><th>Client</th><th>Issued</th><th>Due</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h2 class="section-title">Recent Estimates</h2>
+      <div class="table-wrap">
+        <table id="recent-estimates-table">
+          <thead><tr><th>#</th><th>Client</th><th>Project</th><th>Date</th><th>Valid Until</th><th>Total</th><th>Status</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -152,6 +170,149 @@
       <div class="invoice-paper" id="invoice-paper"></div>
     </section>
 
+    <!-- ESTIMATES LIST -->
+    <section id="view-estimates" class="view">
+      <header class="view-header">
+        <h1>Estimates</h1>
+        <button class="btn btn-primary" id="btn-new-estimate">+ New Estimate</button>
+      </header>
+      <div class="toolbar">
+        <input type="search" id="estimate-search" placeholder="Search estimates...">
+        <select id="estimate-filter-status">
+          <option value="">All statuses</option>
+          <option value="draft">Draft</option>
+          <option value="sent">Sent</option>
+          <option value="accepted">Accepted</option>
+          <option value="declined">Declined</option>
+          <option value="expired">Expired</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table id="estimates-table">
+          <thead><tr><th>#</th><th>Client</th><th>Project</th><th>Date</th><th>Valid Until</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ESTIMATE EDITOR -->
+    <section id="view-estimate-editor" class="view">
+      <header class="view-header">
+        <h1 id="est-editor-title">New Estimate</h1>
+        <div class="header-actions">
+          <button class="btn" id="btn-cancel-estimate">Cancel</button>
+          <button class="btn btn-primary" id="btn-save-estimate">Save Estimate</button>
+        </div>
+      </header>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Client</label>
+          <select id="est-client"></select>
+        </div>
+        <div class="form-field">
+          <label>Estimate #</label>
+          <input type="text" id="est-number">
+        </div>
+        <div class="form-field">
+          <label>Project</label>
+          <input type="text" id="est-project" placeholder="August Animation Package">
+        </div>
+        <div class="form-field">
+          <label>Date</label>
+          <input type="date" id="est-issue-date">
+        </div>
+        <div class="form-field">
+          <label>Valid Until <span class="label-hint">&mdash; expires on its own</span></label>
+          <input type="date" id="est-valid-until">
+        </div>
+        <div class="form-field">
+          <label>Tax Rate (%)</label>
+          <input type="number" id="est-tax-rate" min="0" step="0.01" value="0">
+        </div>
+        <div class="form-field">
+          <label>Deposit (%) <span class="label-hint">&mdash; 0 to hide</span></label>
+          <input type="number" id="est-deposit" min="0" max="100" step="1" value="0">
+        </div>
+        <div class="form-field">
+          <label>Status <span class="label-hint">&mdash; expired is automatic</span></label>
+          <select id="est-status">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="accepted">Accepted</option>
+            <option value="declined">Declined</option>
+          </select>
+        </div>
+      </div>
+
+      <h2 class="section-title">Project Scope</h2>
+      <div class="table-wrap">
+        <table class="kv-table">
+          <thead><tr><th>Label</th><th>Detail</th><th></th></tr></thead>
+          <tbody id="est-scope-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="btn-add-scope">+ Add Scope Line</button>
+
+      <h2 class="section-title">Proposal</h2>
+      <div class="table-wrap">
+        <table id="est-items-table">
+          <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th><th></th></tr></thead>
+          <tbody id="est-items-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="btn-add-est-item">+ Add Line Item</button>
+
+      <div class="totals-box">
+        <div class="totals-row"><span>Subtotal</span><span id="est-totals-subtotal">$0.00</span></div>
+        <div class="totals-row"><span>Tax</span><span id="est-totals-tax">$0.00</span></div>
+        <div class="totals-row totals-grand"><span>Total</span><span id="est-totals-grand">$0.00</span></div>
+        <div class="totals-row totals-deposit" id="est-deposit-row"><span id="est-deposit-label">Deposit</span><span id="est-totals-deposit">$0.00</span></div>
+      </div>
+
+      <h2 class="section-title">Terms &amp; Conditions</h2>
+      <div class="table-wrap">
+        <table class="kv-table">
+          <thead><tr><th>Label</th><th>Detail</th><th></th></tr></thead>
+          <tbody id="est-terms-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="btn-add-term">+ Add Term</button>
+
+      <div class="form-field form-field-block">
+        <label>Notes <span class="label-hint">&mdash; printed under the terms</span></label>
+        <textarea id="est-notes" rows="3" placeholder="Anything else the client should see."></textarea>
+      </div>
+    </section>
+
+    <!-- ESTIMATE VIEW / SEND -->
+    <section id="view-estimate-view" class="view">
+      <header class="view-header">
+        <h1>Estimate</h1>
+        <div class="header-actions">
+          <div class="status-control">
+            <label for="est-view-status">Status</label>
+            <select id="est-view-status">
+              <option value="draft">Draft</option>
+              <option value="sent">Sent</option>
+              <option value="accepted">Accepted</option>
+              <option value="declined">Declined</option>
+            </select>
+            <span class="status-hint" id="est-status-hint"></span>
+          </div>
+          <button class="btn" id="btn-back-from-est-view">Back</button>
+          <button class="btn" id="btn-edit-estimate">Edit</button>
+          <button class="btn" id="btn-duplicate-estimate">Duplicate</button>
+          <button class="btn" id="btn-convert-estimate">Convert to Invoice</button>
+          <button class="btn" id="btn-print-estimate">Print</button>
+          <button class="btn" id="btn-download-est-pdf">Download PDF</button>
+          <button class="btn btn-primary" id="btn-send-estimate">Send via Email</button>
+        </div>
+      </header>
+      <p class="doc-note" id="est-converted-note" hidden></p>
+      <div id="estimate-paper"></div>
+    </section>
+
     <!-- CLIENTS -->
     <section id="view-clients" class="view">
       <header class="view-header">
@@ -180,9 +341,38 @@
             <option value="mailto">Default mail app</option>
           </select>
         </div>
-        <div class="form-field" style="grid-column: 1 / -1;"><label>Business Address</label><textarea id="set-business-address" rows="2"></textarea></div>
+        <div class="form-field"><label>Business Phone</label><input type="tel" id="set-business-phone" placeholder="(713) 555-0100"></div>
+        <div class="form-field"><label>Website</label><input type="text" id="set-business-website" placeholder="braisedanimation.com"></div>
+        <div class="form-field"><label>Estimate Prefix</label><input type="text" id="set-estimate-prefix" placeholder="EST-"></div>
+        <div class="form-field"><label>Estimate Valid For (days)</label><input type="number" id="set-estimate-valid-days" min="1" step="1"></div>
+        <div class="form-field form-field-block"><label>Business Address</label><textarea id="set-business-address" rows="2"></textarea></div>
       </div>
-      <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+
+      <h2 class="section-title">Estimate Defaults</h2>
+      <p class="field-note">Every new estimate starts with these lines. Changing them here doesn't touch estimates you've already saved.</p>
+
+      <h3 class="sub-title">Project Scope</h3>
+      <div class="table-wrap">
+        <table class="kv-table">
+          <thead><tr><th>Label</th><th>Detail</th><th></th></tr></thead>
+          <tbody id="set-scope-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="btn-add-default-scope">+ Add Scope Line</button>
+
+      <h3 class="sub-title">Terms &amp; Conditions</h3>
+      <div class="table-wrap">
+        <table class="kv-table">
+          <thead><tr><th>Label</th><th>Detail</th><th></th></tr></thead>
+          <tbody id="set-terms-tbody"></tbody>
+        </table>
+      </div>
+      <button class="btn" id="btn-add-default-term">+ Add Term</button>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" id="btn-save-settings">Save Settings</button>
+        <button class="btn" id="btn-reset-defaults">Reset defaults</button>
+      </div>
     </section>
 
   </main>
@@ -218,7 +408,7 @@
 
 <script src="js/vendor/jspdf.umd.min.js"></script>
 <script src="js/vendor/html2canvas.min.js"></script>
-<script src="js/storage.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/storage.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>
