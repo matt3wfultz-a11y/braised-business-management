@@ -884,6 +884,7 @@ function openEstimateEditor(estimateId, copyOf) {
   $("#est-tax-rate").value = seed.taxRate || 0;
   $("#est-deposit").value = seed.depositPercent || 0;
   $("#est-notes").value = seed.notes || "";
+  $("#est-extra-emails").value = seed.extraEmails || "";
   // A new estimate starts from the saved defaults; an existing one from itself.
   fillKvRows("#est-scope-tbody", seed.scope || settings.estimateScope, SCOPE_PLACEHOLDER);
   fillKvRows("#est-terms-tbody", seed.terms || settings.estimateTerms, TERMS_PLACEHOLDER);
@@ -922,6 +923,7 @@ $("#btn-save-estimate").addEventListener("click", () => {
     status: $("#est-status").value,
     scope: readKvRows("#est-scope-tbody"),
     terms: readKvRows("#est-terms-tbody"),
+    extraEmails: $("#est-extra-emails").value.trim(),
     notes: $("#est-notes").value.trim(),
     items,
   };
@@ -940,10 +942,25 @@ $("#btn-save-estimate").addEventListener("click", () => {
 });
 
 // ---------- The estimate document ----------
-// One client can carry several addresses on the contact line ("a@x.com,
-// ap@x.com"), which is also what the mail link wants, so split for display.
-function contactLines(client) {
-  return String(client.email || "").split(/[,;\n]/).map((e) => e.trim()).filter(Boolean);
+// A client's Email field can hold several addresses ("a@x.com, ap@x.com"),
+// which is also what a mail link wants, so split it for display.
+function splitContacts(raw) {
+  return String(raw || "").split(/[,;\n]/).map((e) => e.trim()).filter(Boolean);
+}
+
+// The client record holds the standing contacts; an estimate can add extras for
+// a one-off — an AP inbox, a producer copied on this job and no other. Both the
+// document and the send flow use this list, so what's printed is what's mailed.
+function estimateContacts(est, client) {
+  const seen = new Set();
+  const out = [];
+  [...splitContacts(client.email), ...splitContacts(est.extraEmails)].forEach((email) => {
+    const key = email.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(email);
+  });
+  return out;
 }
 
 function docDefs(rows) {
@@ -1004,7 +1021,7 @@ function estimateDocHtml(est) {
           <div class="doc-party-name">${escapeHtml(client.company || client.name || "—")}</div>
           ${client.company && client.name ? `<div class="doc-party-line">${escapeHtml(client.name)}</div>` : ""}
           ${client.address ? `<div class="doc-party-line">${escapeHtml(client.address).replace(/\n/g, "<br>")}</div>` : ""}
-          ${contactLines(client).map((e) => `<div class="doc-party-line">${escapeHtml(e)}</div>`).join("")}
+          ${estimateContacts(est, client).map((e) => `<div class="doc-party-line">${escapeHtml(e)}</div>`).join("")}
         </div>
         <div class="doc-party">
           <h3 class="doc-section-title">Prepared by</h3>
@@ -1172,7 +1189,7 @@ function composeEstimateEmail(est, client) {
   const business = settings.businessName || "Your Business";
   const subject = `Estimate ${est.number}${est.projectTitle ? " — " + est.projectTitle : ""} from ${business}`;
   const body =
-    `Hi ${client.name},\n\n` +
+    `Hi ${client.name || "there"},\n\n` +
     `Here's the estimate for ${est.projectTitle || "the project"} — ${fmtMoney(total)} total` +
     (est.validUntil ? `, valid through ${fmtDate(est.validUntil)}` : "") + `.\n\n` +
     (est.items || []).map((it) => `- ${it.description}: ${it.qty} x ${fmtMoney(it.rate)} = ${fmtMoney(it.qty * it.rate)}`).join("\n") +
@@ -1192,16 +1209,18 @@ function markEstimateSent(est) {
 
 $("#btn-send-estimate").addEventListener("click", () => {
   const est = estimates.find((e) => e.id === viewingEstimateId);
-  const client = clients.find((c) => c.id === est.clientId);
-  if (!client || !client.email) {
-    alert("This client has no email address on file. Add one in Clients.");
+  const client = clients.find((c) => c.id === est.clientId) || {};
+  // Everyone listed on the document, so the recipients match what's printed.
+  const to = estimateContacts(est, client).join(", ");
+  if (!to) {
+    alert("No email address for this estimate. Add one to the client in Clients, or use Additional Contacts on the estimate.");
     return;
   }
   const { subject, body } = composeEstimateEmail(est, client);
 
   if ((settings.emailMethod || "gmail") === "mailto") {
     window.location.href =
-      `mailto:${encodeURIComponent(client.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     markEstimateSent(est);
     return;
   }
@@ -1214,10 +1233,10 @@ $("#btn-send-estimate").addEventListener("click", () => {
     } catch (e) {
       filename = null;
     }
-    pendingSend = { kind: "estimate", id: est.id, url: gmailComposeUrl(client.email, subject, body) };
+    pendingSend = { kind: "estimate", id: est.id, url: gmailComposeUrl(to, subject, body) };
 
     $("#send-modal-title").textContent = `Send Estimate ${est.number}`;
-    $("#send-modal-to").innerHTML = `To <strong>${escapeHtml(client.email)}</strong> — subject and message are filled in for you.`;
+    $("#send-modal-to").innerHTML = `To <strong>${escapeHtml(to)}</strong> — subject and message are filled in for you.`;
     const status = $("#send-modal-status");
     status.classList.toggle("warn", !filename);
     status.innerHTML = filename
