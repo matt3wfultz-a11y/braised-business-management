@@ -245,6 +245,11 @@
         </div>
       </div>
 
+      <div class="form-field form-field-block">
+        <label>Additional Contacts <span class="label-hint">&mdash; extra emails for this estimate only, one per line</span></label>
+        <textarea id="est-extra-emails" rows="2" placeholder="ap@activecampaign.com"></textarea>
+      </div>
+
       <h2 class="section-title">Project Scope</h2>
       <div class="table-wrap">
         <table class="kv-table">
@@ -384,7 +389,7 @@
     <h2 id="client-modal-title">New Client</h2>
     <div class="form-field"><label>Name</label><input type="text" id="client-name"></div>
     <div class="form-field"><label>Company</label><input type="text" id="client-company"></div>
-    <div class="form-field"><label>Email</label><input type="email" id="client-email"></div>
+    <div class="form-field"><label>Email <span class="label-hint">&mdash; separate several with commas</span></label><input type="text" id="client-email" placeholder="vcraig@example.com, AP@example.com"></div>
     <div class="form-field"><label>Address</label><textarea id="client-address" rows="2"></textarea></div>
     <div class="modal-actions">
       <button class="btn" id="btn-cancel-client">Cancel</button>

@@ -30,6 +30,13 @@ the deliverables and the line items. Both tables are free-form label/detail
 rows: rename them, add rows, delete the ones you don't need. A row left empty is
 dropped, and a section with no rows at all disappears from the document.
 
+**Contacts.** The estimate's top block prints the client's company, name,
+address and every address in their Email field — put several in there separated
+by commas and each gets its own line. **Additional Contacts** on the estimate
+adds addresses for that estimate alone, without touching the client record; they
+print under the client's own and are included when you send it. Duplicates are
+ignored, so re-listing an address the client already has changes nothing.
+
 Set **Deposit (%)** to put a "30% deposit on acceptance" line under the total —
 leave it at 0 and the line doesn't appear. **Valid Until** defaults to the
 validity window in Settings and is printed on the page as the date the signature
